@@ -1,0 +1,96 @@
+package Test;
+
+import com.java_net_chat.Log;
+import com.java_net_chat.User;
+import com.java_net_chat.UserInfo;
+import com.sun.xml.internal.fastinfoset.vocab.Vocabulary;
+import org.sqlite.JDBC;
+
+import java.io.IOException;
+import java.sql.*;
+
+
+public class SQLiteAuthService implements AuthService {
+    private static final String TAG = "SQL Auth";
+    private static final String DB_PATH = "chat_db.db";
+    //private static final String DB_PATH = "E:/REPOSITORY/GitHUB/java_net_chat/src/chat_db.db";
+
+    private Connection connection = null;
+
+    @Override
+    public void start() {
+        try {
+//            Class.forName("org.sqlite.JDBC");
+            connection = DriverManager.getConnection(JDBC.PREFIX + DB_PATH);
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
+
+    @Override
+    public UserInfo getUserInfo(User user) {
+        return new UserInfo(user.getNickName(), user.getPass()) ;
+    }
+
+    @Override
+    public boolean checkUser(User user) {
+        try {
+            Statement stmt = connection.createStatement();
+            ResultSet resultSet = stmt.executeQuery("SELECT Password FROM users WHERE NickName = '" + user.getNickName() + "'");
+            if(resultSet.next()) {
+                String pass = resultSet.getString("Password");
+                if( (pass != null) && pass.equals(user.getPass())) {
+                    Log.e(TAG, "Auth OK");
+                    return true;
+                }
+            }
+        } catch (SQLException e) {
+            Log.e(TAG, "SQL error - " + e.getMessage());
+            return false;
+            //e.printStackTrace();
+        }
+        Log.e(TAG, "Auth error");
+        return false;
+    }
+
+    @Override
+    public boolean changeNickName(String oldNickName, String newNickName) {
+        try {
+            Statement stmt = connection.createStatement();
+            ResultSet resultSet = stmt.executeQuery("SELECT Nickname FROM users WHERE NickName = '" + oldNickName + "'");
+            if(resultSet.next()) {
+                Log.e(TAG, "User found");
+
+                if (stmt.executeUpdate("UPDATE users SET NickName = '" + newNickName + "' WHERE NickName = '" + oldNickName + "'") > 0) {
+                    return true;
+                } else {
+                    return false;
+                }
+            }
+        } catch (SQLException e) {
+            Log.e(TAG, "SQL error - " + e.getMessage());
+            return false;
+            //e.printStackTrace();
+        }
+        Log.e(TAG, "User not found");
+        return false;
+    }
+
+
+
+    @Override
+    public void close() throws IOException {
+        if(connection != null) {
+            try {
+                connection.close();
+            } catch (SQLException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
+    @Override
+    public boolean authUser(String username, String password) {
+        return false;
+    }
+}
